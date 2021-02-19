@@ -5,6 +5,7 @@ import jwt
 
 from dotenv import dotenv_values
 from aiohttp import web
+import aiohttp_cors
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.future import select
@@ -59,9 +60,21 @@ async def async_main():
         app = web.Application()
         app["session"] = session
         app["jwt_secret"] = config["JWT_SECRET"]
+        cors = aiohttp_cors.setup(app)
+
+        resource = cors.add(app.router.add_resource("/log"))
+        log_route = cors.add(
+            resource.add_route("POST", post_log_handler), {
+                config["VUE_APP_URL"]: aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers=("X-Custom-Server-Header",),
+                    allow_headers=("X-Requested-With", "Content-Type"),
+                    max_age=3600,
+                )
+        })
+
         app.add_routes([
-            web.get('/', get_health_handler),
-            web.post('/', post_log_handler)
+            web.get('/health', get_health_handler)
             ])
 
         return app
