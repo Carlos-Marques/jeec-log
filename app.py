@@ -1,6 +1,8 @@
 import asyncio
 import time
 
+import jwt
+
 from dotenv import dotenv_values
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,13 +20,19 @@ async def clear_db(engine):
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
-
 async def get_health_handler(request):
     return web.Response(text="Alive")
 
 async def post_log_handler(request):
     data = await request.json()
-    user_id = data["user_id"]
+    
+    jwt_token = data["jwt_token"]
+    try:
+        decoded = jwt.decode(jwt_token, request.app["jwt_secret"], algorithms=["HS256"])
+        user_id = decoded["user_id"]
+    except:
+        return web.Response(status=401)
+
     entrypoint= data["entrypoint"]
 
     session = request.app["session"]
@@ -50,6 +58,7 @@ async def async_main():
     async with async_session() as session:
         app = web.Application()
         app["session"] = session
+        app["jwt_secret"] = config["JWT_SECRET"]
         app.add_routes([
             web.get('/', get_health_handler),
             web.post('/', post_log_handler)
