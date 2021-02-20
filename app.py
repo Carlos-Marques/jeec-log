@@ -35,14 +35,15 @@ async def post_log_handler(request):
 
     entrypoint= data["entrypoint"]
 
-    session = request.app["session"]
-    async with session.begin():
-        session.add_all(
-            [
-                Logs(user_id=user_id, entrypoint=entrypoint)
-            ]
-        )
-    return web.Response()
+    async_session = request.app["async_session"]
+    async with async_session() as session:
+        async with session.begin():
+            session.add_all(
+                [
+                    Logs(user_id=user_id, entrypoint=entrypoint)
+                ]
+            )
+            return web.Response()
 
 async def async_main():
     engine = create_async_engine(
@@ -55,27 +56,28 @@ async def async_main():
         engine, class_=AsyncSession
     )
 
-    async with async_session() as session:
-        app = web.Application()
-        app["session"] = session
-        app["jwt_secret"] = config["JWT_SECRET"]
-        cors = aiohttp_cors.setup(app)
+    await clear_db(engine);
 
-        resource = cors.add(app.router.add_resource("/log"))
-        log_route = cors.add(
-            resource.add_route("POST", post_log_handler), {
-                config["VUE_APP_URL"]: aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers=("X-Custom-Server-Header",),
-                    allow_headers=("X-Requested-With", "Content-Type"),
-                    max_age=3600,
-                )
-        })
+    app = web.Application()
+    app["async_session"] = async_session
+    app["jwt_secret"] = config["JWT_SECRET"]
+    cors = aiohttp_cors.setup(app)
 
-        app.add_routes([
-            web.get('/health', get_health_handler)
-            ])
+    resource = cors.add(app.router.add_resource("/log"))
+    log_route = cors.add(
+        resource.add_route("POST", post_log_handler), {
+            config["VUE_APP_URL"]: aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers=("X-Custom-Server-Header",),
+                allow_headers=("X-Requested-With", "Content-Type"),
+                max_age=3600,
+            )
+    })
 
-        return app
+    app.add_routes([
+        web.get('/health', get_health_handler)
+        ])
+
+    return app
 
 web.run_app(async_main())
