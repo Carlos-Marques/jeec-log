@@ -1,0 +1,10 @@
+version: "3.4"
+services:
+  jeec-log:
+    container_name: jeec-log_1
+    network_mode: host 
+    ports:
+      - "8084:8080"
+    build:
+      context: .
+      dockerfile: ./Dockerfile
