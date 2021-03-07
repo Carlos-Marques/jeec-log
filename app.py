@@ -26,7 +26,7 @@ async def get_health_handler(request):
 async def post_log_handler(request):
     data = await request.json()
     
-    jwt_token = data["jwt_token"]
+    jwt_token = data["jwt"]
     try:
         decoded = jwt.decode(jwt_token, request.app["jwt_secret"], algorithms=["HS256"])
         user_id = decoded["user_id"]
